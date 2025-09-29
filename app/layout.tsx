@@ -8,7 +8,8 @@ import "./globals.css"
 
 export const metadata: Metadata = {
   title: "Hedera USDC Faucet",
-  description: "Created with v0",
+  description:
+    "Get free testnet USDC tokens on the Hedera network. Request 100 USDC every 24 hours for development and testing purposes.",
   generator: "v0.app",
 }
 
