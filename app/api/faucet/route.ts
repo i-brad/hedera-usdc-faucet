@@ -81,28 +81,51 @@ export async function POST(request: NextRequest) {
       PrivateKey.fromStringECDSA(operatorKey),
     )
 
-    // Create transfer transaction
-    const transaction = new TransferTransaction()
-      .addTokenTransfer(usdcTokenId, operatorId, -FAUCET_AMOUNT * 1_000_000) // USDC has 6 decimals
-      .addTokenTransfer(usdcTokenId, accountId, FAUCET_AMOUNT * 1_000_000)
-      .setTransactionMemo("Hedera USDC Faucet")
+    try {
+      // Create transfer transaction
+      const transaction = new TransferTransaction()
+        .addTokenTransfer(usdcTokenId, operatorId, -FAUCET_AMOUNT * 1_000_000) // USDC has 6 decimals
+        .addTokenTransfer(usdcTokenId, accountId, FAUCET_AMOUNT * 1_000_000)
+        .setTransactionMemo("Hedera USDC Faucet")
 
-    // Execute transaction
-    const txResponse = await transaction.execute(client)
-    const receipt = await txResponse.getReceipt(client)
+      // Execute transaction
+      const txResponse = await transaction.execute(client)
+      const receipt = await txResponse.getReceipt(client)
 
-    // Close client
-    client.close()
+      // Close client
+      client.close()
 
-    return NextResponse.json(
-      {
-        success: true,
-        transactionId: txResponse.transactionId.toString(),
-        status: receipt.status.toString(),
-        amount: FAUCET_AMOUNT,
-      },
-      { headers: corsHeaders() },
-    )
+      return NextResponse.json(
+        {
+          success: true,
+          transactionId: txResponse.transactionId.toString(),
+          status: receipt.status.toString(),
+          amount: FAUCET_AMOUNT,
+        },
+        { headers: corsHeaders() },
+      )
+    } catch (transferError: any) {
+      client.close()
+
+      const errorMessage = transferError.message || ""
+      if (errorMessage.includes("TOKEN_NOT_ASSOCIATED_TO_ACCOUNT")) {
+        return NextResponse.json(
+          {
+            error: "Token not associated with account",
+            message:
+              "Your account needs to be associated with USDC before receiving tokens. Please associate the token in your Hedera wallet and try again.",
+            code: "TOKEN_NOT_ASSOCIATED",
+          },
+          { status: 400, headers: corsHeaders() },
+        )
+      }
+
+      console.error("[v0] Transfer error:", transferError)
+      return NextResponse.json(
+        { error: "Failed to process faucet request. Please try again." },
+        { status: 500, headers: corsHeaders() },
+      )
+    }
   } catch (error) {
     console.error("[v0] Faucet error:", error)
     return NextResponse.json(
